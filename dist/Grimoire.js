@@ -26,7 +26,7 @@
 "use strict";
 
 const G = {
-    version: "0.3.0",
+    version: "0.4.0",
     tabs: [],
     state: {},
     ui: null
@@ -1969,6 +1969,25 @@ const CSS = `
 }
 .gm-fab:active { cursor: grabbing; transform: scale(.94); }
 .gm-fab--drag { box-shadow: 0 6px 18px rgba(0,0,0,.75); }
+.gm-root .gm-vk {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none;
+}
+.gm-vk__btn {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; border: 1px solid #5a5a5a; color: #f0f0f0;
+  background: linear-gradient(145deg, #3a3a3a, #161616);
+  box-shadow: 0 2px 8px rgba(0,0,0,.55);
+  pointer-events: auto; touch-action: none; cursor: pointer; line-height: 1;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.gm-vk__btn--arrow { border-radius: 50%; }
+.gm-vk__btn--down {
+  background: linear-gradient(145deg, #6e6e6e, #2c2c2c);
+  border-color: #ffffff; box-shadow: 0 0 0 1px rgba(255,255,255,.35);
+}
+.gm-vk__pad { position: absolute; pointer-events: none; }
+.gm-vk--edit .gm-vk__pad { pointer-events: auto; }
+.gm-vk--edit .gm-vk__btn { border-style: dashed; border-color: #ffffff; cursor: grab; }
 .gm-mask {
   position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.5);
   display: flex; align-items: center; justify-content: center; padding: 8px;
@@ -2047,6 +2066,7 @@ const CSS = `
 .gm-in:focus { outline: none; border-color: #ffffff; }
 .gm-in--num { width: 92px; text-align: right; }
 .gm-in--sm { width: 62px; text-align: right; }
+.gm-colh { width: 62px; text-align: right; color: #7a7a7a; font-size: .85em; }
 .gm-in--mid { width: 160px; }
 .gm-in--full { width: 100%; }
 .gm-in:disabled { opacity: .45; cursor: not-allowed; }
@@ -2194,7 +2214,7 @@ const W = {
         return b;
     },
 
-    toggle(label, get, set) {
+    toggle(label, get, set, extra) {
         const sw = U.el("div", { class: "gm-sw" + (get() ? " gm-sw--on" : "") });
         sw.addEventListener("click", () => {
             const v = !get();
@@ -2203,7 +2223,7 @@ const W = {
         });
         return U.el("div", { class: "gm-row" }, [
             sw, U.el("span", { class: "gm-grow", text: label })
-        ]);
+        ].concat(extra || []));
     },
 
     num(label, get, set, opts) {
@@ -2568,6 +2588,7 @@ G.toggle = function (show) {
     buildUI();
     UI.open = show === undefined ? !UI.open : !!show;
     UI.mask.style.display = UI.open ? "flex" : "none";
+    if (G.vkeys) G.vkeys.sync();
     UI.fab.style.display = UI.open ? "none" : (G.param("startHidden", false) && !UI.forceFab ? "none" : "flex");
     if (UI.open) {
         UI.forceFab = true;
@@ -2806,6 +2827,337 @@ function installHooks() {
         }
         _updateMain.apply(this, arguments);
     };
+}
+
+const VK_PULSE = 3;
+
+const VK_SIZE = 48;
+const VK_OPACITY = 0.8;
+
+const VK_DEFS = [
+
+    { id: "ff", label: "快进", face: "快进", keys: ["ok", "control"], hold: true },
+    { id: "menu", label: "菜单", face: "菜单", keys: ["escape"] },
+    { id: "ok", label: "确定", face: "确定", keys: ["ok"] },
+    { id: "cancel", label: "取消", face: "取消", keys: ["cancel"] },
+    { id: "pageup", label: "上一页", face: "上页", keys: ["pageup"] },
+    { id: "pagedown", label: "下一页", face: "下页", keys: ["pagedown"] },
+    { id: "dash", label: "冲刺", face: "冲刺", keys: ["shift"], hold: true },
+    { id: "dpad", label: "方向键", pad: true }
+];
+
+const VK_PAD = [
+    { key: "up", face: "▲", col: 1, row: 0 },
+    { key: "left", face: "◀", col: 0, row: 1 },
+    { key: "right", face: "▶", col: 2, row: 1 },
+    { key: "down", face: "▼", col: 1, row: 2 }
+];
+
+const VK = {
+    defs: VK_DEFS,
+    layer: null,
+    edit: false,
+    primary: null,
+    held: Object.create(null),
+    pulse: Object.create(null),
+    real: Object.create(null)
+};
+G.vkeys = VK;
+
+function vkState(name, down) {
+    const st = typeof Input !== "undefined" && Input._currentState;
+    if (st) st[name] = down;
+}
+
+function vkPress(name) {
+    VK.held[name] = (VK.held[name] || 0) + 1;
+    vkState(name, true);
+}
+
+function vkRelease(name) {
+    const n = (VK.held[name] || 0) - 1;
+    if (n > 0) {
+        VK.held[name] = n;
+        return;
+    }
+    delete VK.held[name];
+
+    if (!VK.pulse[name] && !VK.real[name]) vkState(name, false);
+}
+
+function vkTap(name) {
+    VK.pulse[name] = VK_PULSE;
+}
+
+function vkFrame() {
+    for (const name in VK.pulse) {
+        if (VK.pulse[name] > 0) {
+            VK.pulse[name]--;
+            vkState(name, true);
+        } else {
+            delete VK.pulse[name];
+            if (!VK.held[name] && !VK.real[name]) vkState(name, false);
+        }
+    }
+    for (const name in VK.held) vkState(name, true);
+}
+
+function vkAfter() {
+    const p = VK.primary;
+    if (!p || !VK.held[p]) return;
+    const cur = Input._latestButton;
+    if (cur !== p && cur && VK.held[cur]) Input._latestButton = p;
+}
+
+VK.releaseAll = function () {
+
+    if (VK.layer) {
+        const btns = VK.layer.querySelectorAll(".gm-vk__btn");
+        for (let i = 0; i < btns.length; i++) {
+            if (btns[i]._vkEnd) btns[i]._vkEnd();
+        }
+    }
+    for (const name in VK.held) {
+        delete VK.held[name];
+        if (!VK.real[name]) vkState(name, false);
+    }
+    VK.primary = null;
+};
+
+function vkMap(key) {
+    const m = Store.get(key, null);
+    return (m && typeof m === "object") ? m : {};
+}
+
+VK.enabled = function (id) {
+    return !!vkMap("vk.on")[id];
+};
+
+VK.setEnabled = function (id, on) {
+    const m = vkMap("vk.on");
+    if (on) m[id] = 1; else delete m[id];
+    Store.set("vk.on", m);
+    VK.sync();
+};
+
+VK.size = function (id) {
+    return U.clamp(vkMap("vk.size")[id] || VK_SIZE, 28, 120);
+};
+
+VK.setSize = function (id, px) {
+    const m = vkMap("vk.size");
+    m[id] = U.clamp(px, 28, 120);
+    Store.set("vk.size", m);
+    VK.sync();
+};
+
+VK.opacity = function (id) {
+    const v = vkMap("vk.opacity")[id];
+    return U.clamp(typeof v === "number" ? v : VK_OPACITY, 0.1, 1);
+};
+
+VK.setOpacity = function (id, a) {
+    const m = vkMap("vk.opacity");
+    m[id] = U.clamp(a, 0.1, 1);
+    Store.set("vk.opacity", m);
+    VK.sync();
+};
+
+VK.setEdit = function (on) {
+    VK.edit = !!on;
+    VK.sync();
+};
+
+VK.reset = function () {
+    Store.set("vk.pos", {});
+    VK.sync();
+};
+
+function vkPos(id) {
+    return vkMap("vk.pos")[id] || null;
+}
+
+function vkSavePos(id, x, y) {
+    const m = vkMap("vk.pos");
+    m[id] = { x: Math.round(x), y: Math.round(y) };
+    Store.set("vk.pos", m);
+}
+
+function vkPlace(node, x, y) {
+    const w = node.offsetWidth, h = node.offsetHeight;
+    x = U.clamp(x, 0, Math.max(0, window.innerWidth - w));
+    y = U.clamp(y, 0, Math.max(0, window.innerHeight - h));
+    node.style.left = x + "px";
+    node.style.top = y + "px";
+}
+
+function vkAutoPos(def, size, cur) {
+    const edge = 18, gap = 10;
+    if (def.pad) return { x: edge, y: window.innerHeight - size * 3 - edge };
+    if (cur.y - size < edge) {
+        cur.x -= cur.w + gap;
+        cur.y = window.innerHeight - edge;
+        cur.w = 0;
+    }
+    const pos = { x: cur.x - size, y: cur.y - size };
+    cur.y -= size + gap;
+    cur.w = Math.max(cur.w, size);
+    return pos;
+}
+
+function vkBindKey(node, keys, hold) {
+    let pid = null, down = false;
+
+    function begin(e) {
+        if (VK.edit || down) return;
+        down = true;
+        pid = e.pointerId;
+        node.classList.add("gm-vk__btn--down");
+        try { node.setPointerCapture(pid); } catch (err) {  }
+        if (hold && keys.length > 1) VK.primary = keys[0];
+        for (const k of keys) {
+            if (hold) vkPress(k); else vkTap(k);
+        }
+        e.preventDefault();
+    }
+
+    function end() {
+        if (!down) return;
+        down = false;
+        node.classList.remove("gm-vk__btn--down");
+        if (hold) {
+            if (VK.primary === keys[0]) VK.primary = null;
+            for (const k of keys) vkRelease(k);
+        }
+        try { node.releasePointerCapture(pid); } catch (err) {  }
+    }
+
+    node._vkEnd = end;
+    node.addEventListener("pointerdown", begin);
+    node.addEventListener("pointerup", end);
+    node.addEventListener("pointercancel", end);
+    node.addEventListener("lostpointercapture", end);
+
+    node.addEventListener("pointerleave", end);
+}
+
+function vkBindDrag(node, id) {
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;
+
+    node.addEventListener("pointerdown", e => {
+        if (!VK.edit) return;
+        dragging = true;
+        pid = e.pointerId;
+        sx = e.clientX; sy = e.clientY;
+        ox = node.offsetLeft; oy = node.offsetTop;
+        try { node.setPointerCapture(pid); } catch (err) {  }
+        e.preventDefault();
+    });
+
+    node.addEventListener("pointermove", e => {
+        if (!dragging) return;
+        vkPlace(node, ox + (e.clientX - sx), oy + (e.clientY - sy));
+    });
+
+    function end() {
+        if (!dragging) return;
+        dragging = false;
+        vkSavePos(id, node.offsetLeft, node.offsetTop);
+        try { node.releasePointerCapture(pid); } catch (err) {  }
+    }
+    node.addEventListener("pointerup", end);
+    node.addEventListener("pointercancel", end);
+}
+
+function vkFont(size) {
+    return U.clamp(Math.round(size * 0.32), 11, 18);
+}
+
+function vkBuildBtn(def, size) {
+    const b = U.el("div", { class: "gm-vk__btn", text: def.face });
+    b.style.width = b.style.height = size + "px";
+    b.style.fontSize = vkFont(size) + "px";
+    vkBindKey(b, def.keys, !!def.hold);
+    return b;
+}
+
+function vkBuildPad(def, size) {
+    const box = U.el("div", { class: "gm-vk__pad" });
+    box.style.width = box.style.height = size * 3 + "px";
+    for (const a of VK_PAD) {
+        const b = U.el("div", { class: "gm-vk__btn gm-vk__btn--arrow", text: a.face });
+        b.style.width = b.style.height = size + "px";
+        b.style.left = a.col * size + "px";
+        b.style.top = a.row * size + "px";
+        b.style.fontSize = vkFont(size) + "px";
+        vkBindKey(b, [a.key], true);
+        box.appendChild(b);
+    }
+    return box;
+}
+
+VK.sync = function () {
+    if (!UI.root) return;
+    VK.releaseAll();
+
+    if (!VK.layer) {
+        VK.layer = U.el("div", { class: "gm-vk" });
+
+        UI.root.insertBefore(VK.layer, UI.mask || null);
+    }
+    VK.layer.innerHTML = "";
+    VK.layer.classList.toggle("gm-vk--edit", VK.edit);
+
+    const list = VK_DEFS.filter(d => VK.enabled(d.id));
+    if (!list.length || UI.open) {
+        VK.layer.style.display = "none";
+        return;
+    }
+    VK.layer.style.display = "";
+
+    const cur = { x: window.innerWidth - 18, y: window.innerHeight - 18, w: 0 };
+    for (const def of list) {
+        const size = VK.size(def.id);
+        const node = def.pad ? vkBuildPad(def, size) : vkBuildBtn(def, size);
+        node.style.opacity = String(VK.opacity(def.id));
+        vkBindDrag(node, def.id);
+        VK.layer.appendChild(node);
+        const p = vkPos(def.id) || vkAutoPos(def, size, cur);
+        vkPlace(node, p.x, p.y);
+    }
+};
+
+function installVKeys() {
+    if (typeof Input === "undefined") return;
+
+    const _update = Input.update;
+    Input.update = function () {
+        try { vkFrame(); } catch (e) {  }
+        _update.apply(this, arguments);
+        try { vkAfter(); } catch (e) {  }
+    };
+
+    const keyName = e => (Input.keyMapper && Input.keyMapper[e.keyCode]) || null;
+    window.addEventListener("keydown", e => {
+        const n = keyName(e);
+        if (n) VK.real[n] = true;
+    }, true);
+    window.addEventListener("keyup", e => {
+        const n = keyName(e);
+        if (n) delete VK.real[n];
+    }, true);
+
+    window.addEventListener("blur", () => {
+        for (const k in VK.real) delete VK.real[k];
+        VK.releaseAll();
+    });
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) VK.releaseAll();
+    });
+
+    window.addEventListener("resize", () => {
+        if (VK.layer && VK.layer.style.display !== "none") VK.sync();
+    });
 }
 
 G.state.actor = { id: 0, page: "base", skillQuery: "", stateQuery: "" };
@@ -4070,6 +4422,29 @@ G.addTab({
     id: "system",
     label: "系统",
     render(root) {
+        root.appendChild(W.sec("屏幕按键"));
+        root.appendChild(U.el("div", { class: "gm-row" }, [
+            U.el("span", { class: "gm-grow" }),
+            U.el("span", { class: "gm-colh", text: "大小 px" }),
+            U.el("span", { class: "gm-colh", text: "不透明度 %" })
+        ]));
+        for (const def of VK.defs) {
+            root.appendChild(W.toggle(def.label + (def.hold ? "（按住）" : ""),
+                () => VK.enabled(def.id), v => VK.setEnabled(def.id, v), [
+                    W.numBox(VK.size(def.id), v => VK.setSize(def.id, v), { min: 28, max: 120 }),
+                    W.numBox(Math.round(VK.opacity(def.id) * 100),
+                        v => VK.setOpacity(def.id, v / 100), { min: 10, max: 100 })
+                ]));
+        }
+        root.appendChild(W.toggle("布局编辑模式（拖动调整按钮位置，期间暂停按键输入）",
+            () => VK.edit, v => {
+                VK.setEdit(v);
+                if (v) U.toast("已进入布局编辑，关闭面板后拖动按钮");
+            }));
+        root.appendChild(U.el("div", { class: "gm-row" }, [
+            W.btn("重置按键位置", () => { VK.reset(); U.toast("已复位"); })
+        ]));
+
         root.appendChild(W.sec("打开场景"));
         const scenes = [
             ["菜单", "Scene_Menu"], ["物品", "Scene_Item"], ["技能", "Scene_Skill"],
@@ -4260,6 +4635,7 @@ function installBoot() {
             const fs = Store.get("fs", 13);
             UI.root.style.setProperty("--gm-fs", fs + "px");
             UI.fab.style.opacity = String(Store.get("fabOpacity", G.param("buttonOpacity", 0.75)));
+            VK.sync();
         } catch (e) {
             console.error("[Grimoire] 建面板失败", e);
         }
@@ -4272,6 +4648,7 @@ function boot() {
         ["hooks", installHooks],
         ["trans", installTransHooks],
         ["font", installFontDelta],
+        ["vkeys", installVKeys],
         ["boot", installBoot],
         ["hotkey", bindHotkey]
     ];
