@@ -17,7 +17,7 @@ Grimoire 本身即是一个 RPG Maker 插件，因此 PC（NW.js）、Android We
 
 ```
 Grimoire.js      单文件插件，152 KB，无任何依赖
-一键安装.bat      一键安装器，10 KB，无需安装 Python
+一键安装.bat      一键安装器，10 KB
 ```
 
 ---
