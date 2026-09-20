@@ -1,0 +1,59 @@
+Grimoire Source-Available License
+
+Copyright (c) 2026 Liset
+All Rights Reserved.
+
+This license applies to the original portions of Grimoire owned by Liset.
+The released files, the source they contain, the documentation, and
+associated files are collectively referred to as the "Software."
+
+"Official Release" means the files released by Liset in this repository,
+namely the single-file plugin and the installer script. Both are published in
+readable, unobfuscated form: the released plugin file is itself the source
+code of the plugin, and no separate source distribution exists.
+
+Permission is granted to:
+
+1. download, install, execute, and use an Official Release as an end user,
+   including installing it into games the user already owns;
+2. make copies of an Official Release reasonably necessary for installation
+   and personal backup; and
+3. access, download, and retain the Software solely for inspection, study,
+   security review, and reference.
+
+Except for the permissions expressly granted above or rights that cannot be
+restricted under applicable law, no permission is granted to:
+
+1. modify, adapt, translate, merge, or create derivative works from the
+   Software;
+2. publish, distribute, sublicense, sell, rent, host, mirror, repackage, or
+   otherwise provide the Software or any derivative work to third parties,
+   whether standalone or bundled inside a game or any other distribution;
+3. remove or alter copyright, license, attribution, or proprietary notices,
+   including the plugin manifest header and the attribution shown in the
+   in-game panel; or
+4. represent the Software, in whole or in part, as one's own work, or
+   redistribute it under a different name or authorship.
+
+The Software is made available under proprietary source-available terms. Its
+availability in readable form does not grant any right beyond this license.
+All rights not expressly granted are reserved. Rights necessarily provided by
+the hosting platform's terms remain unaffected.
+
+Grimoire is an unofficial, third-party plugin. RPG Maker, the games it is
+installed into, their assets and trademarks, and any third-party service the
+user configures for the translation feature remain the property of their
+respective owners and are governed by their own licenses and terms. This
+license applies only to the original portions of Grimoire owned by Liset.
+
+Text produced by the translation feature is derived from the user's own game
+content and from a third-party service chosen and paid for by the user. This
+license grants no rights in either, and the user remains responsible for
+complying with the terms that govern them.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.
